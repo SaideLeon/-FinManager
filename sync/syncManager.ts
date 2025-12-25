@@ -2,12 +2,18 @@
 import { SyncAction } from '../types';
 import { getStore } from '../db/database';
 import { Repository } from '../db/repository';
+import { supabase } from '../lib/supabase';
 
 export class SyncManager {
   private static isSyncing = false;
 
   static async processQueue() {
     if (this.isSyncing || !navigator.onLine) return;
+
+    // Verificar se existe um usuário logado no Supabase para taguear os dados
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     this.isSyncing = true;
 
     try {
@@ -23,18 +29,17 @@ export class SyncManager {
         return;
       }
 
-      console.log(`Sincronizando ${actions.length} ações...`);
+      console.log(`[Sync] Processando ${actions.length} pendências para Supabase...`);
 
       for (const action of actions) {
         try {
-          // Simulate backend call
-          await this.sendToBackend(action);
+          await this.sendToBackend(action, session.user.id);
           
-          // Update local entity status to 'synced'
+          // Atualizar entidade local como sincronizada
           const repo = new Repository<any>(action.entityName);
-          await repo.updateStatus(action.entityId, 'synced');
+          await repo.update(action.entityId, { syncStatus: 'synced' });
 
-          // Remove from queue
+          // Remover da fila de sincronização
           const store = await getStore('sync_queue', 'readwrite');
           await new Promise((resolve, reject) => {
             const request = store.delete(action.id);
@@ -42,8 +47,9 @@ export class SyncManager {
             request.onerror = () => reject(request.error);
           });
         } catch (err) {
-          console.error(`Falha ao sincronizar ação ${action.id}:`, err);
-          // Keep in queue to retry later
+          console.error(`[Sync] Erro na ação ${action.id}:`, err);
+          // Interrompe o loop se for erro de rede, mantém na fila
+          if (!navigator.onLine) break;
         }
       }
     } finally {
@@ -51,14 +57,35 @@ export class SyncManager {
     }
   }
 
-  private static async sendToBackend(action: SyncAction) {
-    // Em um cenário real, aqui seria o fetch('/api/sync', ...)
-    // Para este desafio, simulamos uma latência de rede
-    return new Promise((resolve) => setTimeout(resolve, 500));
+  private static async sendToBackend(action: SyncAction, userId: string) {
+    // Adicionamos o user_id ao payload para segurança RLS no Supabase
+    const payloadWithUser = { 
+      ...action.payload, 
+      user_id: userId,
+      // Garantir que campos de data do IndexedDB não conflitem com os do Supabase se necessário
+      updated_at: new Date().toISOString() 
+    };
+
+    if (action.action === 'DELETE') {
+      const { error } = await supabase
+        .from(action.entityName)
+        .delete()
+        .eq('id', action.entityId)
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+    } else {
+      // CREATE ou UPDATE usamos upsert (insert or update based on ID)
+      const { error } = await supabase
+        .from(action.entityName)
+        .upsert(payloadWithUser);
+
+      if (error) throw error;
+    }
   }
 }
 
-// Auto-trigger sync on reconnect
+// Escutar mudanças de rede
 window.addEventListener('online', () => {
   SyncManager.processQueue();
 });

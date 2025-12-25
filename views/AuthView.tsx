@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { Repository } from '../db/repository';
 import { Logo } from '../components/Logo';
+import { supabase } from '../lib/supabase';
 
 const userRepo = new Repository<User>('users');
 
@@ -17,7 +18,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
   const [authMode, setAuthMode] = useState<'login' | 'register'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [message, setMessage] = useState<{type: 'success' | 'error' | 'info', text: string} | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setAuthMode(initialMode);
@@ -25,26 +27,86 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authMode === 'register') {
-      if (formData.password !== formData.confirmPassword) {
-        setMessage({type: 'error', text: 'As senhas não coincidem.'});
-        return;
-      }
-      try {
-        const user = await userRepo.save({ name: formData.name, email: formData.email, password: formData.password });
-        setMessage({type: 'success', text: 'Conta criada com sucesso!'});
-        setTimeout(() => onLoginSuccess(user), 1000);
-      } catch (err) {
-        setMessage({type: 'error', text: 'Erro ao criar conta.'});
-      }
-    } else {
-      const users = await userRepo.getAll();
-      const user = users.find(u => u.email === formData.email && u.password === formData.password);
-      if (user) {
-        onLoginSuccess(user);
+    if (isLoading) return;
+
+    if (!isOnline && authMode === 'register') {
+      setMessage({type: 'error', text: 'Você precisa de internet para criar uma conta pela primeira vez.'});
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      if (authMode === 'register') {
+        if (formData.password !== formData.confirmPassword) {
+          setMessage({type: 'error', text: 'As senhas não coincidem.'});
+          setIsLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: { full_name: formData.name }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          // Salvar perfil no IndexedDB para uso offline
+          const localUser = await userRepo.save({ 
+            id: data.user.id, // Usar ID do Supabase
+            name: formData.name, 
+            email: formData.email 
+          } as any);
+          
+          setMessage({type: 'success', text: 'Conta criada! Verifique seu e-mail se necessário.'});
+          setTimeout(() => onLoginSuccess(localUser), 1500);
+        }
       } else {
-        setMessage({type: 'error', text: 'Credenciais inválidas ou usuário não encontrado localmente.'});
+        // Modo Login
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (error) {
+          // Tentativa de login offline se falhar o Supabase
+          if (!isOnline) {
+             const users = await userRepo.getAll();
+             const user = users.find(u => u.email === formData.email && u.password === formData.password);
+             if (user) {
+               onLoginSuccess(user);
+               return;
+             }
+          }
+          throw error;
+        }
+
+        if (data.user) {
+          // Atualizar/Criar cache local do usuário
+          const localUser: User = {
+            id: data.user.id,
+            name: data.user.user_metadata.full_name || 'Usuário',
+            email: data.user.email!,
+            createdAt: data.user.created_at,
+            updatedAt: new Date().toISOString(),
+            syncStatus: 'synced'
+          };
+          
+          // Upsert no IndexedDB (precisamos garantir que o Repo suporte isso ou fazer manualmente)
+          // Simplificando: Apenas passamos para o App
+          onLoginSuccess(localUser);
+        }
       }
+    } catch (err: any) {
+      console.error(err);
+      setMessage({type: 'error', text: err.message || 'Ocorreu um erro na autenticação.'});
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -62,7 +124,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
             Tome o controle do seu <span className="text-primary">futuro financeiro</span>.
           </h2>
           <p className="text-gray-400 text-lg leading-relaxed">
-            Gestão inteligente que funciona em qualquer lugar, com ou sem internet. Seus dados são salvos localmente e sincronizados de forma segura.
+            Gestão inteligente que funciona em qualquer lugar, com ou sem internet. Seus dados são salvos localmente e sincronizados de forma segura no Supabase.
           </p>
           <div className="mt-8 flex items-center gap-4">
              <div className="flex -space-x-3">
@@ -96,13 +158,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
             <p className="text-text-secondary mt-2">
               {authMode === 'login' 
                 ? 'Acesse sua conta para gerenciar suas finanças.' 
-                : 'Comece agora a profissionalizar seu negócio.'}
+                : 'Sincronize seus dados na nuvem gratuitamente.'}
             </p>
           </div>
 
+          {!isOnline && (
+            <div className="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">cloud_off</span>
+              MODO OFFLINE ATIVO
+            </div>
+          )}
+
           {message && (
             <div className={`p-4 rounded-xl text-sm font-bold border animate-in slide-in-from-top-2 ${
-              message.type === 'success' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-red-500/10 border-red-500/20 text-red-400'
+              message.type === 'success' ? 'bg-primary/10 border-primary/20 text-primary' : 
+              message.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
             }`}>
               {message.text}
             </div>
@@ -115,9 +185,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
                 <input 
                   required 
                   type="text"
+                  disabled={isLoading}
                   value={formData.name}
                   onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary" 
+                  className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50" 
                   placeholder="Seu nome" 
                 />
               </div>
@@ -128,9 +199,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
               <input 
                 required 
                 type="email"
+                disabled={isLoading}
                 value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})}
-                className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary" 
+                className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50" 
                 placeholder="exemplo@email.com" 
               />
             </div>
@@ -141,9 +213,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
                 <input 
                   required 
                   type={showPassword ? 'text' : 'password'}
+                  disabled={isLoading}
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
-                  className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary" 
+                  className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50" 
                   placeholder="••••••••" 
                 />
                 <button 
@@ -162,9 +235,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
                 <input 
                   required 
                   type="password"
+                  disabled={isLoading}
                   value={formData.confirmPassword}
                   onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                  className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary" 
+                  className="w-full bg-surface-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50" 
                   placeholder="••••••••" 
                 />
               </div>
@@ -172,8 +246,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
 
             <button 
               type="submit"
-              className="w-full bg-primary text-background-dark py-4 rounded-xl font-black text-sm uppercase tracking-tighter shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform mt-4"
+              disabled={isLoading}
+              className="w-full bg-primary text-background-dark py-4 rounded-xl font-black text-sm uppercase tracking-tighter shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform mt-4 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
             >
+              {isLoading && <div className="size-4 border-2 border-background-dark border-t-transparent animate-spin rounded-full"></div>}
               {authMode === 'login' ? 'Entrar no Sistema' : 'Criar minha conta'}
             </button>
           </form>
@@ -182,8 +258,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, in
             <p className="text-sm text-text-secondary">
               {authMode === 'login' ? 'Ainda não tem conta?' : 'Já possui uma conta?'}
               <button 
+                disabled={isLoading}
                 onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="ml-2 text-primary font-bold hover:underline"
+                className="ml-2 text-primary font-bold hover:underline disabled:opacity-50"
               >
                 {authMode === 'login' ? 'Registre-se' : 'Faça login'}
               </button>

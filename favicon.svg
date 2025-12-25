@@ -1,0 +1,15 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Shape: Rounded Hexagon -->
+  <path d="M50 5L89.1746 27.5V72.5L50 95L10.8254 72.5V27.5L50 5Z" fill="#102216"/>
+  
+  <!-- Stylized 'E' + Growth Bars -->
+  <path d="M35 30H70" stroke="#13ec5b" stroke-width="10" stroke-linecap="round"/>
+  <path d="M35 50H60" stroke="#13ec5b" stroke-width="10" stroke-linecap="round"/>
+  <path d="M35 70H75" stroke="#13ec5b" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Vertical Spine -->
+  <path d="M35 30V70" stroke="#13ec5b" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Accent Point (Signal/Sync indicator) -->
+  <circle cx="75" cy="50" r="6" fill="#13ec5b"/>
+</svg>

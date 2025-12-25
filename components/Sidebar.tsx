@@ -6,47 +6,103 @@ interface SidebarProps {
   setView: (view: any) => void;
   userName: string;
   handleLogout: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, setView, userName, handleLogout }) => {
-  return (
-    <aside className="hidden lg:flex w-64 flex-col border-r border-border-dark bg-background-dark shrink-0">
-      <div className="flex h-full flex-col justify-between p-4">
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-3 px-2">
-            <div className="bg-primary/20 flex items-center justify-center rounded-xl size-10 ring-1 ring-primary/30">
-              <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-white text-base font-bold tracking-tight">FinManager</h1>
-              <p className="text-text-secondary text-xs">{userName}</p>
-            </div>
-          </div>
-          
-          <nav className="flex flex-col gap-2">
-            <NavItem icon="dashboard" label="Visão Geral" active={activeView === 'dashboard'} onClick={() => setView('dashboard')} />
-            <NavItem icon="storefront" label="Caixa Diário" active={activeView === 'cashier'} onClick={() => setView('cashier')} />
-            <NavItem icon="payments" label="Contas a Pagar" active={activeView === 'payables'} onClick={() => setView('payables')} />
-            <NavItem icon="group" label="Contas a Receber" active={activeView === 'receivables'} onClick={() => setView('receivables')} />
-            <NavItem icon="business_center" label="Fornecedores" active={activeView === 'suppliers'} onClick={() => setView('suppliers')} />
-            <NavItem icon="analytics" label="Relatórios" active={activeView === 'reports'} onClick={() => setView('reports')} />
-          </nav>
-        </div>
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeView, 
+  setView, 
+  userName, 
+  handleLogout, 
+  isOpen = false, 
+  onClose 
+}) => {
+  const handleNavClick = (view: any) => {
+    setView(view);
+    if (onClose) onClose();
+  };
 
-        <div className="px-2">
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-text-secondary hover:bg-red-500/10 hover:text-red-400 transition-colors">
-            <span className="material-symbols-outlined">logout</span>
-            <span className="text-sm font-medium">Sair</span>
-          </button>
+  return (
+    <>
+      {/* Overlay para Mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-[70] bg-background-dark/80 backdrop-blur-sm lg:hidden animate-in fade-in duration-300"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-[80] w-72 bg-background-dark border-r border-border-dark 
+        transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:flex lg:w-64 lg:flex-col shrink-0
+        ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+      `}>
+        <div className="flex h-full flex-col justify-between p-4">
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/20 flex items-center justify-center rounded-xl size-10 ring-1 ring-primary/30">
+                  <span className="material-symbols-outlined text-primary">storefront</span>
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-white text-base font-bold tracking-tight">MerceariaPro</h1>
+                  <p className="text-text-secondary text-[10px] font-bold uppercase tracking-wider">{userName}</p>
+                </div>
+              </div>
+              
+              {/* Botão de fechar (apenas mobile) */}
+              <button 
+                onClick={onClose}
+                className="lg:hidden text-text-secondary hover:text-white p-1"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <nav className="flex flex-col gap-1.5 mt-4">
+              <NavItem icon="dashboard" label="Visão Geral" active={activeView === 'dashboard'} onClick={() => handleNavClick('dashboard')} />
+              <NavItem icon="storefront" label="Caixa Diário" active={activeView === 'cashier'} onClick={() => handleNavClick('cashier')} />
+              <NavItem icon="payments" label="Contas a Pagar" active={activeView === 'payables'} onClick={() => handleNavClick('payables')} />
+              <NavItem icon="group" label="Contas a Receber" active={activeView === 'receivables'} onClick={() => handleNavClick('receivables')} />
+              <NavItem icon="business_center" label="Fornecedores" active={activeView === 'suppliers'} onClick={() => handleNavClick('suppliers')} />
+              <NavItem icon="analytics" label="Relatórios" active={activeView === 'reports'} onClick={() => handleNavClick('reports')} />
+            </nav>
+          </div>
+
+          <div className="px-2 border-t border-border-dark pt-4">
+            <div className="p-3 rounded-xl bg-surface-highlight/30 mb-4 lg:hidden">
+                <p className="text-[10px] text-text-secondary font-black uppercase mb-1">Status</p>
+                <div className="flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-primary animate-pulse"></div>
+                    <span className="text-xs font-bold text-white">Sincronizado</span>
+                </div>
+            </div>
+            <button onClick={handleLogout} className="flex w-full items-center gap-3 px-3 py-3 rounded-xl text-text-secondary hover:bg-red-500/10 hover:text-red-400 transition-colors">
+              <span className="material-symbols-outlined">logout</span>
+              <span className="text-sm font-bold uppercase tracking-tighter">Sair do Sistema</span>
+            </button>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 
 const NavItem = ({ icon, label, active, onClick }: any) => (
-  <button onClick={onClick} className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${active ? 'bg-primary/10 text-primary border-l-4 border-primary' : 'text-text-secondary hover:bg-surface-dark hover:text-white'}`}>
+  <button 
+    onClick={onClick} 
+    className={`
+      flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all relative group
+      ${active 
+        ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(19,236,91,0.2)]' 
+        : 'text-text-secondary hover:bg-surface-dark hover:text-white'
+      }
+    `}
+  >
+    {active && <div className="absolute left-0 top-3 bottom-3 w-1 bg-primary rounded-r-full"></div>}
     <span className="material-symbols-outlined">{icon}</span>
-    <span className="text-sm font-bold">{label}</span>
+    <span className="text-sm font-bold tracking-tight">{label}</span>
   </button>
 );

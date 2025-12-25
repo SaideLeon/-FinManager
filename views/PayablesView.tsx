@@ -1,22 +1,45 @@
 
-import React, { useState, useEffect } from 'react';
-import { Payable, User } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Payable, User, Supplier } from '../types';
 import { Repository } from '../db/repository';
 import { SyncManager } from '../sync/syncManager';
 import { Sidebar } from '../components/Sidebar';
 
 const payableRepo = new Repository<Payable>('payables');
+const supplierRepo = new Repository<Supplier>('suppliers');
 
 export const PayablesView = ({ user, setView, isOnline }: any) => {
   const [payables, setPayables] = useState<Payable[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData();
+    loadSuppliers();
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowSupplierDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadData = async () => {
     const all = await payableRepo.getAll();
     setPayables(all.sort((a, b) => a.dueDate.localeCompare(b.dueDate)));
+  };
+
+  const loadSuppliers = async () => {
+    const all = await supplierRepo.getAll();
+    setSuppliers(all);
   };
 
   const handleAddPayable = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -28,7 +51,7 @@ export const PayablesView = ({ user, setView, isOnline }: any) => {
     
     try {
       await payableRepo.save({
-        supplierName: formData.get('fornecedor') as string,
+        supplierName: supplierSearch || (formData.get('fornecedor') as string),
         description: formData.get('descricao') as string,
         amount: parseFloat(formData.get('valor') as string),
         dueDate: formData.get('vencimento') as string,
@@ -37,6 +60,7 @@ export const PayablesView = ({ user, setView, isOnline }: any) => {
       });
       
       setIsModalOpen(false);
+      setSupplierSearch('');
       await loadData();
       SyncManager.processQueue();
     } catch (err) {
@@ -52,66 +76,99 @@ export const PayablesView = ({ user, setView, isOnline }: any) => {
     SyncManager.processQueue();
   };
 
+  const filteredSuppliers = suppliers.filter(s => 
+    s.name.toLowerCase().includes(supplierSearch.toLowerCase())
+  ).slice(0, 5);
+
   return (
     <div className="flex h-screen w-full bg-background-light dark:bg-background-dark font-display overflow-hidden text-white">
-      <Sidebar activeView="payables" setView={setView} userName={user.name} handleLogout={() => { localStorage.removeItem('finmanager_user'); window.location.reload(); }} />
+      <Sidebar 
+        activeView="payables" 
+        setView={setView} 
+        userName={user.name} 
+        handleLogout={() => { localStorage.removeItem('finmanager_user'); window.location.reload(); }}
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+      />
       
       <main className="flex-1 flex flex-col h-full overflow-y-auto p-4 lg:p-8 gap-6">
-        <div className="flex justify-between items-end border-b border-border-dark pb-4">
-          <div>
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between mb-2 lg:hidden">
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="size-10 flex items-center justify-center rounded-xl bg-surface-highlight/50 text-white border border-border-dark"
+          >
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400">
+              <span className="material-symbols-outlined text-xl">payments</span>
+            </div>
+            <span className="font-bold text-sm tracking-tight">Contas a Pagar</span>
+          </div>
+          <div className="size-10"></div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end border-b border-border-dark pb-4 gap-4">
+          <div className="hidden sm:block">
             <h1 className="text-3xl font-bold text-white tracking-tight">Contas a Pagar</h1>
             <p className="text-text-secondary">Gestão de obrigações e despesas</p>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-primary text-background-dark px-6 py-2.5 rounded-xl font-black text-sm hover:bg-primary-hover shadow-lg shadow-primary/20 flex items-center gap-2">
+          <button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto bg-primary text-background-dark px-6 py-2.5 rounded-xl font-black text-sm hover:bg-primary-hover shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
             <span className="material-symbols-outlined">add_card</span>
             NOVA CONTA
           </button>
         </div>
 
         <div className="bg-surface-dark border border-border-dark rounded-xl overflow-hidden shadow-lg">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#152a1d] text-text-secondary font-medium border-b border-border-dark">
-              <tr>
-                <th className="px-6 py-4">Vencimento</th>
-                <th className="px-6 py-4">Fornecedor</th>
-                <th className="px-6 py-4">Descrição</th>
-                <th className="px-6 py-4 text-right">Valor</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-dark text-white">
-              {payables.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-text-secondary italic">Nenhuma conta pendente registrada.</td></tr>
-              ) : payables.map(p => (
-                <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 text-gray-400">{new Date(p.dueDate).toLocaleDateString('pt-MZ')}</td>
-                  <td className="px-6 py-4 font-bold">{p.supplierName}</td>
-                  <td className="px-6 py-4">{p.description}</td>
-                  <td className="px-6 py-4 text-right font-bold text-red-400">{p.amount.toLocaleString('pt-MZ')} MT</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${p.status === 'paid' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
-                      {p.status === 'paid' ? 'PAGO' : 'PENDENTE'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {p.status !== 'paid' && (
-                      <button onClick={() => handleMarkAsPaid(p.id)} className="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors" title="Marcar como Pago">
-                        <span className="material-symbols-outlined">check_circle</span>
-                      </button>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-[#152a1d] text-text-secondary font-medium border-b border-border-dark">
+                <tr>
+                  <th className="px-6 py-4">Vencimento</th>
+                  <th className="px-6 py-4">Fornecedor</th>
+                  <th className="px-6 py-4 hidden md:table-cell">Descrição</th>
+                  <th className="px-6 py-4 text-right">Valor</th>
+                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border-dark text-white">
+                {payables.length === 0 ? (
+                  <tr><td colSpan={6} className="px-6 py-12 text-center text-text-secondary italic">Nenhuma conta pendente registrada.</td></tr>
+                ) : payables.map(p => (
+                  <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-6 py-4 text-gray-400">{new Date(p.dueDate).toLocaleDateString('pt-MZ')}</td>
+                    <td className="px-6 py-4 font-bold">
+                      {p.supplierName}
+                      <p className="md:hidden text-[10px] text-gray-500 font-normal">{p.description}</p>
+                    </td>
+                    <td className="px-6 py-4 text-gray-300 hidden md:table-cell">{p.description}</td>
+                    <td className="px-6 py-4 text-right font-bold text-red-400">{(p.amount ?? 0).toLocaleString('pt-MZ')} MT</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${p.status === 'paid' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
+                        {p.status === 'paid' ? 'PAGO' : 'PENDENTE'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {p.status !== 'paid' && (
+                        <button onClick={() => handleMarkAsPaid(p.id)} className="text-primary hover:bg-primary/10 p-2 rounded-lg transition-colors" title="Marcar como Pago">
+                          <span className="material-symbols-outlined">check_circle</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
 
       {/* Modal de Cadastro */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background-dark/80 backdrop-blur-sm p-4">
-          <form onSubmit={handleAddPayable} className="bg-surface-dark w-full max-w-lg rounded-2xl border border-border-dark shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background-dark/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <form onSubmit={handleAddPayable} className="bg-surface-dark w-full max-w-lg my-8 rounded-2xl border border-border-dark shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-border-dark bg-[#152a1d] flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">payments</span>
@@ -122,18 +179,60 @@ export const PayablesView = ({ user, setView, isOnline }: any) => {
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="space-y-1">
+              <div className="space-y-1 relative" ref={dropdownRef}>
                 <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Fornecedor</label>
-                <input required name="fornecedor" className="w-full bg-background-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary" placeholder="Nome da empresa..." disabled={isSaving} />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-text-secondary text-sm">search</span>
+                  <input 
+                    required 
+                    name="fornecedor" 
+                    autoComplete="off"
+                    value={supplierSearch}
+                    onChange={(e) => {
+                      setSupplierSearch(e.target.value);
+                      setShowSupplierDropdown(true);
+                    }}
+                    onFocus={() => setShowSupplierDropdown(true)}
+                    className="w-full bg-background-dark border border-border-dark rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary placeholder:text-gray-600" 
+                    placeholder="Busque ou digite o nome..." 
+                    disabled={isSaving} 
+                  />
+                </div>
+                {showSupplierDropdown && supplierSearch.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-surface-highlight border border-border-dark rounded-xl shadow-2xl overflow-hidden">
+                    {filteredSuppliers.length > 0 ? (
+                      <div className="py-1">
+                        {filteredSuppliers.map(s => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setSupplierSearch(s.name);
+                              setShowSupplierDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-between group"
+                          >
+                            <span className="font-bold">{s.name}</span>
+                            <span className="text-[10px] opacity-0 group-hover:opacity-100 uppercase font-black text-primary">Selecionar</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 text-xs text-text-secondary italic">Não encontrado.</div>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Descrição do Gasto</label>
+                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Descrição</label>
                 <input required name="descricao" className="w-full bg-background-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary" placeholder="Ex: Fatura de Energia" disabled={isSaving} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Valor (MT)</label>
-                  <input required name="valor" type="number" step="0.01" className="w-full bg-background-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary" placeholder="0.00" disabled={isSaving} />
+                  <input required name="valor" type="number" step="0.01" className="w-full bg-background-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary font-bold" placeholder="0.00" disabled={isSaving} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Vencimento</label>
@@ -141,13 +240,13 @@ export const PayablesView = ({ user, setView, isOnline }: any) => {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Observações (Opcional)</label>
+                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest pl-1">Observações</label>
                 <textarea name="notas" className="w-full bg-background-dark border border-border-dark rounded-xl px-4 py-3 text-white focus:border-primary h-24 resize-none" disabled={isSaving}></textarea>
               </div>
             </div>
-            <div className="p-6 bg-[#152a1d] border-t border-border-dark flex justify-end gap-4">
-              <button type="button" onClick={() => setIsModalOpen(false)} className="text-sm font-bold text-text-secondary hover:text-white px-4" disabled={isSaving}>CANCELAR</button>
-              <button type="submit" className="bg-primary text-background-dark px-8 py-3 rounded-xl font-black text-sm shadow-lg shadow-primary/20 disabled:opacity-50" disabled={isSaving}>
+            <div className="p-6 bg-[#152a1d] border-t border-border-dark flex flex-col sm:flex-row justify-end gap-3">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="py-3 text-sm font-bold text-text-secondary hover:text-white" disabled={isSaving}>CANCELAR</button>
+              <button type="submit" className="bg-primary text-background-dark px-8 py-3 rounded-xl font-black text-sm shadow-lg disabled:opacity-50" disabled={isSaving}>
                 {isSaving ? 'SALVANDO...' : 'SALVAR CONTA'}
               </button>
             </div>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinManager - Gestão Financeira</title>
+    <title>MerceariaPro - Gestão Financeira Inteligente</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#102216">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -30,9 +30,10 @@
                         "text-secondary": "#92c9a4"
                     },
                     fontFamily: {
-                        "display": ["Manrope", "sans-serif"]
+                        "display": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"]
                     },
-                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "2xl": "1.5rem", "full": "9999px"},
                 },
             },
         }
@@ -47,6 +48,8 @@
         .dark ::-webkit-scrollbar-thumb:hover { background: #2f5e3e; }
         .chart-bar { transition: height 0.5s ease-out; }
         .chart-bar:hover { opacity: 0.9; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 <script type="importmap">
 {

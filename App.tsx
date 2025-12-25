@@ -9,10 +9,13 @@ import { PayablesView } from './views/PayablesView';
 import { ReceivablesView } from './views/ReceivablesView';
 import { CashierView } from './views/CashierView';
 import { ReportsView } from './views/ReportsView';
+import { LandingView } from './views/LandingView';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [view, setView] = useState<'dashboard' | 'reports' | 'cashier' | 'receivables' | 'payables' | 'suppliers'>('dashboard');
+  const [unauthView, setUnauthView] = useState<'landing' | 'auth'>('landing');
+  const [initialAuthMode, setInitialAuthMode] = useState<'login' | 'register'>('login');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -42,12 +45,24 @@ export default function App() {
     setView('dashboard');
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('finmanager_user');
+  const startAuth = (mode: 'login' | 'register' = 'login') => {
+    setInitialAuthMode(mode);
+    setUnauthView('auth');
   };
 
-  if (!currentUser) return <AuthView onLoginSuccess={handleLoginSuccess} isOnline={isOnline} />;
+  if (!currentUser) {
+    if (unauthView === 'landing') {
+      return <LandingView onStartAuth={startAuth} />;
+    }
+    return (
+      <AuthView 
+        onLoginSuccess={handleLoginSuccess} 
+        isOnline={isOnline} 
+        initialMode={initialAuthMode}
+        onBack={() => setUnauthView('landing')}
+      />
+    );
+  }
 
   const renderView = () => {
     switch (view) {

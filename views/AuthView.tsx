@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { Repository } from '../db/repository';
 
@@ -8,13 +8,19 @@ const userRepo = new Repository<User>('users');
 interface AuthViewProps {
   onLoginSuccess: (user: User) => void;
   isOnline: boolean;
+  initialMode?: 'login' | 'register';
+  onBack?: () => void;
 }
 
-export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline }) => {
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline, initialMode = 'login', onBack }) => {
+  const [authMode, setAuthMode] = useState<'login' | 'register'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  useEffect(() => {
+    setAuthMode(initialMode);
+  }, [initialMode]);
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +48,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline }) 
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-background-light dark:bg-background-dark font-display">
+    <div className="flex min-h-screen w-full bg-background-light dark:bg-background-dark font-display animate-in fade-in duration-500">
       {/* Coluna Esquerda: Branding & Info */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-background-dark border-r border-border-dark flex-col justify-between p-12 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#13ec5b20] via-transparent to-transparent"></div>
@@ -50,7 +56,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline }) 
           <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10 text-primary">
             <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
           </div>
-          <span className="text-xl font-bold tracking-tight">FinManager</span>
+          <span className="text-xl font-bold tracking-tight">MerceariaPro</span>
         </div>
         <div className="relative z-20 max-w-lg">
           <h2 className="text-4xl font-extrabold leading-tight mb-4 text-white">
@@ -66,11 +72,22 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess, isOnline }) 
              <p className="text-sm text-text-secondary font-medium">Utilizado por centenas de gestores locais.</p>
           </div>
         </div>
-        <div className="relative z-20 text-sm text-gray-500">© 2024 FinManager Inc. • PWA & Offline-First</div>
+        <div className="relative z-20 text-sm text-gray-500">© 2024 MerceariaPro • PWA & Offline-First</div>
       </div>
 
       {/* Coluna Direita: Formulário */}
       <div className="w-full lg:w-1/2 flex flex-col bg-background-light dark:bg-surface-dark relative min-h-screen">
+        <div className="absolute top-6 left-6 lg:left-12">
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-text-secondary hover:text-white transition-colors text-sm font-bold"
+            >
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              VOLTAR
+            </button>
+          )}
+        </div>
         <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 py-12 overflow-y-auto">
           <div className="w-full max-w-[440px] mx-auto space-y-8">
             <div className="text-center space-y-2">

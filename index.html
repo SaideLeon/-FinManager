@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinManager - Gestão Financeira</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#102216">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13ec5b",
+                        "primary-hover": "#0fb845",
+                        "background-light": "#f6f8f6",
+                        "background-dark": "#102216",
+                        "surface-dark": "#1c3a27", 
+                        "surface-highlight": "#23482f",
+                        "input-dark": "#193322",
+                        "border-dark": "#23482f",
+                        "border-focus": "#326744",
+                        "text-secondary": "#92c9a4"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+        .dark ::-webkit-scrollbar-track { background: #102216; }
+        .dark ::-webkit-scrollbar-thumb { background: #23482f; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #2f5e3e; }
+        .chart-bar { transition: height 0.5s ease-out; }
+        .chart-bar:hover { opacity: 0.9; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen font-display flex flex-col text-slate-900 dark:text-white overflow-x-hidden relative">
+    <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>

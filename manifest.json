@@ -1,0 +1,22 @@
+
+{
+  "name": "Mercearia Financeiro",
+  "short_name": "Mercearia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#102216",
+  "theme_color": "#13ec5b",
+  "description": "Sistema de gestão financeira offline-first",
+  "icons": [
+    {
+      "src": "https://picsum.photos/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

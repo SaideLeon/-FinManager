@@ -1,7 +1,7 @@
 # Dockerfile otimizado para Coolify - EZEN Financeiro
 # Sem Nginx - Coolify cuida do proxy reverso
 
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -9,8 +9,8 @@ WORKDIR /app
 # Copiar arquivos de dependências
 COPY package*.json ./
 
-# Instalar dependências (mudado de npm ci para npm install)
-RUN npm install --legacy-peer-deps --omit=dev
+# Instalar dependências (incluindo devDependencies para o build)
+RUN npm install --legacy-peer-deps
 
 # Copiar código fonte
 COPY . .
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Stage final: Servir aplicação
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Instalar 'serve' globalmente (servidor HTTP estático leve)
 RUN npm install -g serve
@@ -48,4 +48,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # -s: modo SPA (single page application)
 # -l: porta de escuta
 CMD ["serve", "-s", "dist", "-l", "3006"]
-

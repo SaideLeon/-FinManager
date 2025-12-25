@@ -42,9 +42,10 @@ EXPOSE 3006
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3006/ || exit 1
 
 # Comando para iniciar o servidor
 # -s: modo SPA (single page application)
 # -l: porta de escuta
 CMD ["serve", "-s", "dist", "-l", "3006"]
+
